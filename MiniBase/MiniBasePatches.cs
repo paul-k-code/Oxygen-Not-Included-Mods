@@ -32,6 +32,7 @@ using static MiniBase.MiniBaseConfig;
 using static MiniBase.MiniBaseUtils;
 using UnityEngine;
 using System.IO;
+using PeterHan.PLib.Core;
 
 namespace MiniBase
 {
@@ -41,6 +42,7 @@ namespace MiniBase
 
         public override void OnLoad(Harmony harmony)
         {
+            PUtil.InitLibrary(false);
             MiniBaseOptions.Reload();
             new POptions().RegisterOptions(this, typeof(MiniBaseOptions));
             ModPath = mod.ContentPath;
@@ -118,8 +120,14 @@ namespace MiniBase
                 // Add new care packages
                 var packageList = ___carePackages.ToList();
 
-                void AddElement(SimHashes element, float amount, int cycle = -1) { AddItem(ElementLoader.FindElementByHash(element).tag.ToString(), amount, cycle); }
-                void AddItem(string name, float amount, int cycle = -1) { packageList.Add(new CarePackageInfo(name, amount, cycle < 0 ? IsMiniBase : (Func<bool>) (() => CycleCondition(cycle) && IsMiniBase()))); }
+                void AddElement(SimHashes element, float amount, int cycle = -1) 
+                { 
+                    AddItem(ElementLoader.FindElementByHash(element).tag.ToString(), amount, cycle); 
+                }
+                void AddItem(string name, float amount, int cycle = -1) 
+                { 
+                    packageList.Add(new CarePackageInfo(name, amount, cycle < 0 ? IsMiniBase : (Func<bool>) (() => CycleCondition(cycle) && IsMiniBase()))); 
+                }
 
                 // Minerals
                 AddElement(SimHashes.Granite, 2000f);

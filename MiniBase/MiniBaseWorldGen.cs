@@ -152,7 +152,7 @@ namespace MiniBase
             var options = MiniBaseOptions.Instance;
             string SpaceBiome = "subworlds/space/Space";
             string backgroundBiome = options.GetBiome().backgroundSubworld;
-            string sideBiome = options.SideBiome == MiniBaseOptions.SideType.Terrain ? backgroundBiome : SpaceBiome;
+            string sideBiome = SpaceBiome;
 
             TagSet tags;
             List<Vector2> vertices;
@@ -292,8 +292,8 @@ namespace MiniBase
             }
 
             // Main biome
-            int relativeLeft = options.SideBiome == MiniBaseOptions.SideType.Terrain ? 0 : Left();
-            int relativeRight = options.SideBiome == MiniBaseOptions.SideType.Terrain ? WORLD_WIDTH : Right();
+            int relativeLeft = Left();
+            int relativeRight = Right();
             for (int x = relativeLeft; x < relativeRight; x++)
                 for (int y = Bottom(); y < Top(); y++)
                 {
@@ -411,11 +411,43 @@ namespace MiniBase
                 borderMat = WorldGen.katairiteElement;
                 for(int y = Top(); y < Top(true); y++)
                 {
+                    //Left cutout
                     for (int x = Left() + CORNER_SIZE; x < Math.Min(Left() + CORNER_SIZE + SPACE_ACCESS_SIZE, Right() - CORNER_SIZE); x++)
                         AddBorderCell(x, y, borderMat);
+                    //Right cutout
                     for (int x = Math.Max(Right() - CORNER_SIZE - SPACE_ACCESS_SIZE, Left() + CORNER_SIZE); x < Right() - CORNER_SIZE; x++)
                         AddBorderCell(x, y, borderMat);
+                    if (MiniBaseOptions.Instance.SpaceTunnelAccess == MiniBaseOptions.SpaceTunnelAccessType.LeftOnly)
+                    {
+                        //far left cutout
+                        for (int x = CORNER_SIZE; x < CORNER_SIZE + SPACE_ACCESS_SIZE; x++)
+                            AddBorderCell(x, y, borderMat);
+                    }
                 }
+                if (MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.BothSides ||
+                    MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.LeftOnly ||
+                    MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.RightOnly)
+                {
+                    //Space Tunnels
+                    for (int y = Bottom(false) + CORNER_SIZE; y < Bottom(false) + 5 + CORNER_SIZE; y++)
+                    {
+                        if (MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.LeftOnly ||
+                            MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.BothSides)
+                        {
+                            //Far left tunnel
+                            for (int x = Left(true); x < Left(false); x++)
+                                AddBorderCell(x, y, borderMat);
+                        }
+                        if (MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.RightOnly ||
+                            MiniBaseOptions.Instance.TunnelAccess == MiniBaseOptions.TunnelAccessType.BothSides)
+                        {
+                            //Far Right tunnel
+                            for (int x = Right(false); x < Right(true); x++)
+                                AddBorderCell(x, y, borderMat);
+                        }
+                    }
+                }
+
             }
             else if (MiniBaseOptions.Instance.SpaceAccess == MiniBaseOptions.AccessType.Full)
             {

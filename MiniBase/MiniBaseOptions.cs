@@ -1,11 +1,13 @@
 ﻿using Newtonsoft.Json;
 using PeterHan.PLib.Options;
 using System.Collections.Generic;
+using System.Runtime.Remoting.Activation;
 using static MiniBase.Profiles.MiniBaseBiomeProfiles;
 using static MiniBase.Profiles.MiniBaseCoreBiomeProfiles;
 
 namespace MiniBase
 {
+    [ModInfo("")]
     [ConfigFile("config.json", true)]
     [JsonObject(MemberSerialization.OptIn)]
     public sealed class MiniBaseOptions
@@ -31,10 +33,6 @@ namespace MiniBase
         [Option("Main Biome", "The main biome of the map\nDetermines available resources, flora, and fauna", WorldGenCategory)]
         [JsonProperty]
         public BiomeType Biome { get; set; }
-
-        //[Option("Side Biomes", "The areas outside the liveable area.\nThis is a purely aesthetic option.", WorldGenCategory)]
-        //[JsonProperty]
-        public SideType SideBiome { get; set; }
 
         [Option("Southern Biome", "The small biome at the bottom of the map\nProtected by a layer of abyssalite", WorldGenCategory)]
         [JsonProperty]
@@ -67,6 +65,15 @@ namespace MiniBase
         [JsonProperty]
         public int CarePackageFrequency { get; set; }
 
+        [Option("Tunnel Access", "Adds tunnels for access to left and right sides", WorldGenCategory)]
+        [JsonProperty]
+        public TunnelAccessType TunnelAccess { get; set; }
+
+        [Option("Space Access via Tunnel", "Adds space access to the left side", WorldGenCategory)]
+        [JsonProperty]
+        public SpaceTunnelAccessType SpaceTunnelAccess { get; set; }
+
+
         #region Debug
 
         [JsonProperty]
@@ -85,13 +92,14 @@ namespace MiniBase
             FeatureSouth = FeatureType.OilReservoir;
             Biome = BiomeType.Temperate;
             CoreBiome = CoreType.Magma;
-            SideBiome = SideType.Space;
             ResourceMod = ResourceModifier.Normal;
             SpaceAccess = AccessType.Classic;
             Size = BaseSize.Normal;
             CustomWidth = 70;
             CustomHeight = 40;
             CarePackageFrequency = 2;
+            TunnelAccess = TunnelAccessType.None;
+            SpaceTunnelAccess = SpaceTunnelAccessType.None;
 
             DebugMode = false;
             FastImmigration = false;
@@ -315,6 +323,24 @@ namespace MiniBase
             Full,
         }
 
+        public enum TunnelAccessType
+        {
+            [Option("None", "No Side Tunnels")]
+            None,
+            [Option("Left Only", "Adds Left Side Tunnel")]
+            LeftOnly,
+            [Option("Right Only", "Adds Right Side Tunnel")]
+            RightOnly,
+            [Option("Left and Right", "Adds Left and Right Side Tunnels")]
+            BothSides
+        }
+        public enum SpaceTunnelAccessType
+        {
+            [Option("None", "No left side space access")]
+            None,
+            [Option("Left Side Access", "Adds left side space access")]
+            LeftOnly
+        }
         public enum SideType
         {
             Space,
