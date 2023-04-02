@@ -33,6 +33,7 @@ using static MiniBase.MiniBaseUtils;
 using UnityEngine;
 using System.IO;
 using PeterHan.PLib.Core;
+using System.Collections.Generic;
 
 namespace MiniBase
 {
@@ -212,12 +213,12 @@ namespace MiniBase
                 return !IsMiniBase();
             }
 
-            public static void Postfix(WorldGen __instance, ref bool __result, ref Sim.Cell[] cells, ref Sim.DiseaseCell[] dc, int baseId)
+            public static void Postfix(WorldGen __instance, ref bool __result, ref Sim.Cell[] cells, ref Sim.DiseaseCell[] dc, int baseId, ref List<WorldTrait> placedStoryTraits)
             {
                 if (!IsMiniBase())
                     return;
                 Log("WorldGen_RenderOffline_Patch Postfix");
-                __result = MiniBaseWorldGen.CreateWorld(__instance, ref cells, ref dc, baseId);
+                __result = MiniBaseWorldGen.CreateWorld(__instance, ref cells, ref dc, baseId, ref placedStoryTraits);
             }
         }
 

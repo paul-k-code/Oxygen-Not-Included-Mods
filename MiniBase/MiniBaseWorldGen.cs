@@ -12,15 +12,16 @@ using VoronoiTree;
 using TemplateClasses;
 using static MiniBase.MiniBaseConfig;
 using static MiniBase.MiniBaseUtils;
+using static ProcGenGame.TemplateSpawning;
 
 namespace MiniBase
 {
     public class MiniBaseWorldGen
     {
         private static System.Random random;
-        
+
         // Rewrite of WorldGen.RenderOffline
-        public static bool CreateWorld(WorldGen gen, ref Sim.Cell[] cells, ref Sim.DiseaseCell[] dc, int baseId)
+        public static bool CreateWorld(WorldGen gen, ref Sim.Cell[] cells, ref Sim.DiseaseCell[] dc, int baseId, ref List<WorldTrait> placedStoryTraits)
         {
             Log("Creating world");
 
@@ -70,7 +71,7 @@ namespace MiniBase
             Log("Generating starting template");
             var startPos = Vec(Left() + (Width() / 2) - 1, Bottom() + (Height() / 2) + 2);
             data.gameSpawnData.baseStartPos = startPos;
-            var templateSpawnTargets = new List<KeyValuePair<Vector2I, TemplateContainer>>();
+            var templateSpawnTargets = new List<TemplateSpawner>();
             var reservedCells = new HashSet<Vector2I>();
             TemplateContainer startingBaseTemplate = TemplateCache.GetTemplate(gen.Settings.world.startingBaseTemplate);
 
@@ -78,15 +79,22 @@ namespace MiniBase
             startingBaseTemplate.pickupables.Clear(); // Remove stray hatch
             var itemPos = new Vector2I(3, 1);
             foreach (var entry in biomeProfile.startingItems) // Add custom defined starting items
-                startingBaseTemplate.pickupables.Add(new Prefab(entry.Key, Prefab.Type.Pickupable, itemPos.x, itemPos.y, (SimHashes) 0, _units: entry.Value));
+                startingBaseTemplate.pickupables.Add(new Prefab(entry.Key, Prefab.Type.Pickupable, itemPos.x, itemPos.y, (SimHashes)0, _units: entry.Value));
             foreach (Cell cell in startingBaseTemplate.cells)
             {
                 if (cell.element == SimHashes.SandStone || cell.element == SimHashes.Algae)
                     cell.element = biomeProfile.defaultMaterial;
                 reservedCells.Add(new Vector2I(cell.location_x, cell.location_y) + startPos);
             }
+            Log("Looking for starting Terrain Cell");
+            TerrainCell terrainCell = data.overworldCells.Find((Predicate<TerrainCell>)(tc => tc.node.tags.Contains(WorldGenTags.StartLocation)));
+            if (terrainCell == null)
+            {
+                Log("Null Terrain Cell");
+            }
+            Log("Done Looking for starting Terrain Cell");
             startingBaseTemplate.cells.RemoveAll((c) => (c.location_x == -8) || (c.location_x == 9)); // Trim the starting base area
-            templateSpawnTargets.Add(new KeyValuePair<Vector2I, TemplateContainer>(startPos, startingBaseTemplate));
+            templateSpawnTargets.Add(new TemplateSpawner(startPos,startingBaseTemplate.GetTemplateBounds(), startingBaseTemplate, terrainCell));
 
             // Geysers
             Log("Placing features");
@@ -123,8 +131,8 @@ namespace MiniBase
             // Place templates, pretty much just the printing pod
             Log("Placing templates");
             var claimedCells = new Dictionary<int, int>();
-            foreach (KeyValuePair<Vector2I, TemplateContainer> keyValuePair in templateSpawnTargets)
-                data.gameSpawnData.AddTemplate(keyValuePair.Value, keyValuePair.Key, ref claimedCells);
+            foreach (var templateSpawner in templateSpawnTargets)
+                data.gameSpawnData.AddTemplate(templateSpawner.container, templateSpawner.position, ref claimedCells);
 
             // Add plants, critters, and items
             Log("Adding critters, etc");
@@ -261,7 +269,7 @@ namespace MiniBase
             coreCells = new HashSet<Vector2I>();
             for (int index = 0; index < data.terrainCells.Count; ++index)
                 data.terrainCells[index].InitializeCells(claimedCells);
-            if(MiniBaseOptions.Instance.SkipLiveableArea)
+            if (MiniBaseOptions.Instance.SkipLiveableArea)
                 return biomeCells;
 
             // Using a smooth noisemap, map the noise values to elements via the element band profile
@@ -275,7 +283,7 @@ namespace MiniBase
                     { DiseaseID.FOOD_POISONING, DiseaseDb.GetIndex(DiseaseDb.FoodGerms.id)},
                 };
 
-                foreach(var pos in positions)
+                foreach (var pos in positions)
                 {
                     float e = noiseMap[pos.x, pos.y];
                     BandInfo bandInfo = biome.GetBand(e);
@@ -320,15 +328,15 @@ namespace MiniBase
                         abyssaliteCells.Add(Vec(x, Bottom() + heights[x] + j));
 
                     // Ensure border thickness at high slopes
-                    if(x > relativeLeft && x < relativeRight - 1)
-                        if((heights[x - 1] - heights[x] > 1) || (heights[x + 1] - heights[x] > 1))
+                    if (x > relativeLeft && x < relativeRight - 1)
+                        if ((heights[x - 1] - heights[x] > 1) || (heights[x + 1] - heights[x] > 1))
                         {
                             Vector2I top = Vec(x, Bottom() + heights[x] + CORE_BORDER - 1);
                             abyssaliteCells.Add(top + Vec(-1, 0));
                             abyssaliteCells.Add(top + Vec(1, 0));
                             abyssaliteCells.Add(top + Vec(0, 1));
                         }
-                    
+
                     // Mark core biome cells
                     for (int y = Bottom(); y < Bottom() + heights[x]; y++)
                         coreCells.Add(Vec(x, y));
@@ -348,7 +356,7 @@ namespace MiniBase
         {
             ISet<Vector2I> borderCells = new HashSet<Vector2I>();
 
-            void AddBorderCell(int x , int y, Element e)
+            void AddBorderCell(int x, int y, Element e)
             {
                 int cell = Grid.XYToCell(x, y);
                 if (Grid.IsValidCell(cell))
@@ -385,7 +393,7 @@ namespace MiniBase
             // Corner structures
             int leftCenterX = (Left(true) + Left(false)) / 2;
             int rightCenterX = (Right(false) + Right(true)) / 2;
-            int adjustedCornerSize = CORNER_SIZE + (int) Math.Ceiling(BORDER_SIZE / 2f);
+            int adjustedCornerSize = CORNER_SIZE + (int)Math.Ceiling(BORDER_SIZE / 2f);
             for (int i = 0; i < adjustedCornerSize; i++)
                 for (int j = adjustedCornerSize; j > i; j--)
                 {
@@ -406,10 +414,10 @@ namespace MiniBase
                 }
 
             // Space access
-            if(MiniBaseOptions.Instance.SpaceAccess == MiniBaseOptions.AccessType.Classic)
+            if (MiniBaseOptions.Instance.SpaceAccess == MiniBaseOptions.AccessType.Classic)
             {
                 borderMat = WorldGen.katairiteElement;
-                for(int y = Top(); y < Top(true); y++)
+                for (int y = Top(); y < Top(true); y++)
                 {
                     //Left cutout
                     for (int x = Left() + CORNER_SIZE; x < Math.Min(Left() + CORNER_SIZE + SPACE_ACCESS_SIZE, Right() - CORNER_SIZE); x++)
@@ -464,7 +472,7 @@ namespace MiniBase
         private static void PlaceGeyser(Data data, Sim.Cell[] cells, MiniBaseOptions.FeatureType type, Vector2I pos, Element coverMaterial)
         {
             string featureName;
-            switch(type)
+            switch (type)
             {
                 case MiniBaseOptions.FeatureType.None:
                     featureName = null;
@@ -515,7 +523,7 @@ namespace MiniBase
                 inLiquid = new HashSet<Vector2I>(),
             };
 
-            foreach(Vector2I pos in biomeCells)
+            foreach (Vector2I pos in biomeCells)
             {
                 int cell = Grid.PosToCell(pos);
                 Element element = ElementLoader.elements[cells[cell].elementIdx];
@@ -529,7 +537,7 @@ namespace MiniBase
                     else
                         spawnPoints.inAir.Add(pos);
                 }
-                else if(element.IsLiquid)
+                else if (element.IsLiquid)
                     spawnPoints.inLiquid.Add(pos);
             }
 
@@ -562,12 +570,12 @@ namespace MiniBase
                 return;
             foreach (KeyValuePair<string, float> spawnable in spawnables)
             {
-                int numSpawnables = (int) Math.Ceiling(spawnable.Value * spawnPoints.Count);
-                for (int i = 0; i < numSpawnables && spawnPoints.Count > 0; i ++)
+                int numSpawnables = (int)Math.Ceiling(spawnable.Value * spawnPoints.Count);
+                for (int i = 0; i < numSpawnables && spawnPoints.Count > 0; i++)
                 {
                     var pos = spawnPoints.ElementAt(random.Next(0, spawnPoints.Count));
                     spawnPoints.Remove(pos);
-                    spawnList.Add(new Prefab(spawnable.Key, prefabType, pos.x, pos.y, (SimHashes) 0));
+                    spawnList.Add(new Prefab(spawnable.Key, prefabType, pos.x, pos.y, (SimHashes)0));
                 }
             }
         }
@@ -587,7 +595,7 @@ namespace MiniBase
         public static Vector2I TopRight(bool withBorders = false) { return Vec(Right(withBorders), Top(withBorders)); }
         public static Vector2I BottomLeft(bool withBorders = false) { return Vec(Left(withBorders), Bottom(withBorders)); }
         public static Vector2I BottomRight(bool withBorders = false) { return Vec(Right(withBorders), Bottom(withBorders)); }
-        public static Vector2I Vec(int a, int b) { return new Vector2I(a, b);  }
+        public static Vector2I Vec(int a, int b) { return new Vector2I(a, b); }
         public static bool InLiveableArea(Vector2I pos) { return pos.x >= Left() && pos.x < Right() && pos.y >= Bottom() && pos.y < Top(); }
 
         public static Sim.PhysicsData GetPhysicsData(Element element, float modifier = 1f, float temperature = -1f)
@@ -613,7 +621,7 @@ namespace MiniBase
             float absolutePeriod = 100f;
             float xStretch = 2.5f;
             float zStretch = 1.6f;
-            Vector2f offset = new Vector2f((float) r.NextDouble(), (float) r.NextDouble());
+            Vector2f offset = new Vector2f((float)r.NextDouble(), (float)r.NextDouble());
             float[,] noiseMap = new float[width, height];
 
             float total = 0f;
@@ -626,9 +634,9 @@ namespace MiniBase
                         oct1.amp * Mathf.PerlinNoise(oct1.freq * pos.x / xStretch, oct1.freq * pos.y) +
                         oct2.amp * Mathf.PerlinNoise(oct2.freq * pos.x / xStretch, oct2.freq * pos.y) +
                         oct3.amp * Mathf.PerlinNoise(oct3.freq * pos.x / xStretch, oct3.freq * pos.y);
-                    
+
                     e = e / maxAmp;                                                                                 // Normalize to [0, 1]
-                    float f = Mathf.Clamp((float) e, 0f, 1f);
+                    float f = Mathf.Clamp((float)e, 0f, 1f);
                     total += f;
 
                     noiseMap[i, j] = f;
